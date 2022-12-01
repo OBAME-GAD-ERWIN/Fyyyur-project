@@ -1,163 +1,245 @@
 Metadata-Version: 2.1
-Name: arrow
-Version: 1.2.3
-Summary: Better dates & times for Python
-Home-page: https://arrow.readthedocs.io
-Author: Chris Smith
-Author-email: crsmithdev@gmail.com
-License: Apache 2.0
-Project-URL: Repository, https://github.com/arrow-py/arrow
-Project-URL: Bug Reports, https://github.com/arrow-py/arrow/issues
-Project-URL: Documentation, https://arrow.readthedocs.io
-Keywords: arrow date time datetime timestamp timezone humanize
+Name: asgiref
+Version: 3.5.2
+Summary: ASGI specs, helper code, and adapters
+Home-page: https://github.com/django/asgiref/
+Author: Django Software Foundation
+Author-email: foundation@djangoproject.com
+License: BSD
+Project-URL: Documentation, https://asgi.readthedocs.io/
+Project-URL: Further Documentation, https://docs.djangoproject.com/en/stable/topics/async/#async-adapter-functions
+Project-URL: Changelog, https://github.com/django/asgiref/blob/master/CHANGELOG.txt
 Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
-Requires-Python: >=3.6
-Description-Content-Type: text/x-rst
+Classifier: Topic :: Internet :: WWW/HTTP
+Requires-Python: >=3.7
 License-File: LICENSE
-Requires-Dist: python-dateutil (>=2.7.0)
 Requires-Dist: typing-extensions ; python_version < "3.8"
+Provides-Extra: tests
+Requires-Dist: pytest ; extra == 'tests'
+Requires-Dist: pytest-asyncio ; extra == 'tests'
+Requires-Dist: mypy (>=0.800) ; extra == 'tests'
 
-Arrow: Better dates & times for Python
-======================================
+asgiref
+=======
 
-.. start-inclusion-marker-do-not-remove
+.. image:: https://api.travis-ci.org/django/asgiref.svg
+    :target: https://travis-ci.org/django/asgiref
 
-.. image:: https://github.com/arrow-py/arrow/workflows/tests/badge.svg?branch=master
-   :alt: Build Status
-   :target: https://github.com/arrow-py/arrow/actions?query=workflow%3Atests+branch%3Amaster
+.. image:: https://img.shields.io/pypi/v/asgiref.svg
+    :target: https://pypi.python.org/pypi/asgiref
 
-.. image:: https://codecov.io/gh/arrow-py/arrow/branch/master/graph/badge.svg
-   :alt: Coverage
-   :target: https://codecov.io/gh/arrow-py/arrow
+ASGI is a standard for Python asynchronous web apps and servers to communicate
+with each other, and positioned as an asynchronous successor to WSGI. You can
+read more at https://asgi.readthedocs.io/en/latest/
 
-.. image:: https://img.shields.io/pypi/v/arrow.svg
-   :alt: PyPI Version
-   :target: https://pypi.python.org/pypi/arrow
+This package includes ASGI base libraries, such as:
 
-.. image:: https://img.shields.io/pypi/pyversions/arrow.svg
-   :alt: Supported Python Versions
-   :target: https://pypi.python.org/pypi/arrow
-
-.. image:: https://img.shields.io/pypi/l/arrow.svg
-   :alt: License
-   :target: https://pypi.python.org/pypi/arrow
-
-.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
-   :alt: Code Style: Black
-   :target: https://github.com/psf/black
+* Sync-to-async and async-to-sync function wrappers, ``asgiref.sync``
+* Server base classes, ``asgiref.server``
+* A WSGI-to-ASGI adapter, in ``asgiref.wsgi``
 
 
-**Arrow** is a Python library that offers a sensible and human-friendly approach to creating, manipulating, formatting and converting dates, times and timestamps. It implements and updates the datetime type, plugging gaps in functionality and providing an intelligent module API that supports many common creation scenarios. Simply put, it helps you work with dates and times with fewer imports and a lot less code.
+Function wrappers
+-----------------
 
-Arrow is named after the `arrow of time <https://en.wikipedia.org/wiki/Arrow_of_time>`_ and is heavily inspired by `moment.js <https://github.com/moment/moment>`_ and `requests <https://github.com/psf/requests>`_.
+These allow you to wrap or decorate async or sync functions to call them from
+the other style (so you can call async functions from a synchronous thread,
+or vice-versa).
 
-Why use Arrow over built-in modules?
-------------------------------------
+In particular:
 
-Python's standard library and some other low-level modules have near-complete date, time and timezone functionality, but don't work very well from a usability perspective:
+* AsyncToSync lets a synchronous subthread stop and wait while the async
+  function is called on the main thread's event loop, and then control is
+  returned to the thread when the async function is finished.
 
-- Too many modules: datetime, time, calendar, dateutil, pytz and more
-- Too many types: date, time, datetime, tzinfo, timedelta, relativedelta, etc.
-- Timezones and timestamp conversions are verbose and unpleasant
-- Timezone naivety is the norm
-- Gaps in functionality: ISO 8601 parsing, timespans, humanization
+* SyncToAsync lets async code call a synchronous function, which is run in
+  a threadpool and control returned to the async coroutine when the synchronous
+  function completes.
 
-Features
---------
+The idea is to make it easier to call synchronous APIs from async code and
+asynchronous APIs from synchronous code so it's easier to transition code from
+one style to the other. In the case of Channels, we wrap the (synchronous)
+Django view system with SyncToAsync to allow it to run inside the (asynchronous)
+ASGI server.
 
-- Fully-implemented, drop-in replacement for datetime
-- Support for Python 3.6+
-- Timezone-aware and UTC by default
-- Super-simple creation options for many common input scenarios
-- ``shift`` method with support for relative offsets, including weeks
-- Format and parse strings automatically
-- Wide support for the `ISO 8601 <https://en.wikipedia.org/wiki/ISO_8601>`_ standard
-- Timezone conversion
-- Support for ``dateutil``, ``pytz``, and ``ZoneInfo`` tzinfo objects
-- Generates time spans, ranges, floors and ceilings for time frames ranging from microsecond to year
-- Humanize dates and times with a growing list of contributed locales
-- Extensible for your own Arrow-derived types
-- Full support for PEP 484-style type hints
+Note that exactly what threads things run in is very specific, and aimed to
+keep maximum compatibility with old synchronous code. See
+"Synchronous code & Threads" below for a full explanation. By default,
+``sync_to_async`` will run all synchronous code in the program in the same
+thread for safety reasons; you can disable this for more performance with
+``@sync_to_async(thread_sensitive=False)``, but make sure that your code does
+not rely on anything bound to threads (like database connections) when you do.
 
-Quick Start
------------
 
-Installation
-~~~~~~~~~~~~
+Threadlocal replacement
+-----------------------
 
-To install Arrow, use `pip <https://pip.pypa.io/en/stable/quickstart/>`_ or `pipenv <https://docs.pipenv.org>`_:
+This is a drop-in replacement for ``threading.local`` that works with both
+threads and asyncio Tasks. Even better, it will proxy values through from a
+task-local context to a thread-local context when you use ``sync_to_async``
+to run things in a threadpool, and vice-versa for ``async_to_sync``.
 
-.. code-block:: console
+If you instead want true thread- and task-safety, you can set
+``thread_critical`` on the Local object to ensure this instead.
 
-    $ pip install -U arrow
 
-Example Usage
-~~~~~~~~~~~~~
+Server base classes
+-------------------
 
-.. code-block:: python
+Includes a ``StatelessServer`` class which provides all the hard work of
+writing a stateless server (as in, does not handle direct incoming sockets
+but instead consumes external streams or sockets to work out what is happening).
 
-    >>> import arrow
-    >>> arrow.get('2013-05-11T21:23:58.970460+07:00')
-    <Arrow [2013-05-11T21:23:58.970460+07:00]>
+An example of such a server would be a chatbot server that connects out to
+a central chat server and provides a "connection scope" per user chatting to
+it. There's only one actual connection, but the server has to separate things
+into several scopes for easier writing of the code.
 
-    >>> utc = arrow.utcnow()
-    >>> utc
-    <Arrow [2013-05-11T21:23:58.970460+00:00]>
+You can see an example of this being used in `frequensgi <https://github.com/andrewgodwin/frequensgi>`_.
 
-    >>> utc = utc.shift(hours=-1)
-    >>> utc
-    <Arrow [2013-05-11T20:23:58.970460+00:00]>
 
-    >>> local = utc.to('US/Pacific')
-    >>> local
-    <Arrow [2013-05-11T13:23:58.970460-07:00]>
+WSGI-to-ASGI adapter
+--------------------
 
-    >>> local.timestamp()
-    1368303838.970460
+Allows you to wrap a WSGI application so it appears as a valid ASGI application.
 
-    >>> local.format()
-    '2013-05-11 13:23:58 -07:00'
+Simply wrap it around your WSGI application like so::
 
-    >>> local.format('YYYY-MM-DD HH:mm:ss ZZ')
-    '2013-05-11 13:23:58 -07:00'
+    asgi_application = WsgiToAsgi(wsgi_application)
 
-    >>> local.humanize()
-    'an hour ago'
+The WSGI application will be run in a synchronous threadpool, and the wrapped
+ASGI application will be one that accepts ``http`` class messages.
 
-    >>> local.humanize(locale='ko-kr')
-    '한시간 전'
+Please note that not all extended features of WSGI may be supported (such as
+file handles for incoming POST bodies).
 
-.. end-inclusion-marker-do-not-remove
 
-Documentation
--------------
+Dependencies
+------------
 
-For full documentation, please visit `arrow.readthedocs.io <https://arrow.readthedocs.io>`_.
+``asgiref`` requires Python 3.7 or higher.
+
 
 Contributing
 ------------
 
-Contributions are welcome for both code and localizations (adding and updating locales). Begin by gaining familiarity with the Arrow library and its features. Then, jump into contributing:
+Please refer to the
+`main Channels contributing docs <https://github.com/django/channels/blob/master/CONTRIBUTING.rst>`_.
 
-#. Find an issue or feature to tackle on the `issue tracker <https://github.com/arrow-py/arrow/issues>`_. Issues marked with the `"good first issue" label <https://github.com/arrow-py/arrow/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22>`_ may be a great place to start!
-#. Fork `this repository <https://github.com/arrow-py/arrow>`_ on GitHub and begin making changes in a branch.
-#. Add a few tests to ensure that the bug was fixed or the feature works as expected.
-#. Run the entire test suite and linting checks by running one of the following commands: ``tox && tox -e lint,docs`` (if you have `tox <https://tox.readthedocs.io>`_ installed) **OR** ``make build39 && make test && make lint`` (if you do not have Python 3.9 installed, replace ``build39`` with the latest Python version on your system).
-#. Submit a pull request and await feedback 😃.
 
-If you have any questions along the way, feel free to ask them `here <https://github.com/arrow-py/arrow/discussions>`_.
+Testing
+'''''''
 
-Support Arrow
--------------
+To run tests, make sure you have installed the ``tests`` extra with the package::
 
-`Open Collective <https://opencollective.com/>`_ is an online funding platform that provides tools to raise money and share your finances with full transparency. It is the platform of choice for individuals and companies to make one-time or recurring donations directly to the project. If you are interested in making a financial contribution, please visit the `Arrow collective <https://opencollective.com/arrow>`_.
+    cd asgiref/
+    pip install -e .[tests]
+    pytest
+
+
+Building the documentation
+''''''''''''''''''''''''''
+
+The documentation uses `Sphinx <http://www.sphinx-doc.org>`_::
+
+    cd asgiref/docs/
+    pip install sphinx
+
+To build the docs, you can use the default tools::
+
+    sphinx-build -b html . _build/html  # or `make html`, if you've got make set up
+    cd _build/html
+    python -m http.server
+
+...or you can use ``sphinx-autobuild`` to run a server and rebuild/reload
+your documentation changes automatically::
+
+    pip install sphinx-autobuild
+    sphinx-autobuild . _build/html
+
+
+Releasing
+'''''''''
+
+To release, first add details to CHANGELOG.txt and update the version number in ``asgiref/__init__.py``.
+
+Then, build and push the packages::
+
+    python -m build
+    twine upload dist/*
+    rm -r build/ dist/
+
+
+Implementation Details
+----------------------
+
+Synchronous code & threads
+''''''''''''''''''''''''''
+
+The ``asgiref.sync`` module provides two wrappers that let you go between
+asynchronous and synchronous code at will, while taking care of the rough edges
+for you.
+
+Unfortunately, the rough edges are numerous, and the code has to work especially
+hard to keep things in the same thread as much as possible. Notably, the
+restrictions we are working with are:
+
+* All synchronous code called through ``SyncToAsync`` and marked with
+  ``thread_sensitive`` should run in the same thread as each other (and if the
+  outer layer of the program is synchronous, the main thread)
+
+* If a thread already has a running async loop, ``AsyncToSync`` can't run things
+  on that loop if it's blocked on synchronous code that is above you in the
+  call stack.
+
+The first compromise you get to might be that ``thread_sensitive`` code should
+just run in the same thread and not spawn in a sub-thread, fulfilling the first
+restriction, but that immediately runs you into the second restriction.
+
+The only real solution is to essentially have a variant of ThreadPoolExecutor
+that executes any ``thread_sensitive`` code on the outermost synchronous
+thread - either the main thread, or a single spawned subthread.
+
+This means you now have two basic states:
+
+* If the outermost layer of your program is synchronous, then all async code
+  run through ``AsyncToSync`` will run in a per-call event loop in arbitrary
+  sub-threads, while all ``thread_sensitive`` code will run in the main thread.
+
+* If the outermost layer of your program is asynchronous, then all async code
+  runs on the main thread's event loop, and all ``thread_sensitive`` synchronous
+  code will run in a single shared sub-thread.
+
+Crucially, this means that in both cases there is a thread which is a shared
+resource that all ``thread_sensitive`` code must run on, and there is a chance
+that this thread is currently blocked on its own ``AsyncToSync`` call. Thus,
+``AsyncToSync`` needs to act as an executor for thread code while it's blocking.
+
+The ``CurrentThreadExecutor`` class provides this functionality; rather than
+simply waiting on a Future, you can call its ``run_until_future`` method and
+it will run submitted code until that Future is done. This means that code
+inside the call can then run code on your thread.
+
+
+Maintenance and Security
+------------------------
+
+To report security issues, please contact security@djangoproject.com. For GPG
+signatures and more security process information, see
+https://docs.djangoproject.com/en/dev/internals/security/.
+
+To report bugs or request new features, please open a new GitHub issue.
+
+This repository is part of the Channels project. For the shepherd and maintenance team, please see the
+`main Channels readme <https://github.com/django/channels/blob/master/README.rst>`_.
