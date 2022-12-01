@@ -1,139 +1,163 @@
 Metadata-Version: 2.1
-Name: alembic
-Version: 1.8.1
-Summary: A database migration tool for SQLAlchemy.
-Home-page: https://alembic.sqlalchemy.org
-Author: Mike Bayer
-Author-email: mike_mp@zzzcomputing.com
-License: MIT
-Project-URL: Source, https://github.com/sqlalchemy/alembic/
-Project-URL: Documentation, https://alembic.sqlalchemy.org/en/latest/
-Project-URL: Issue Tracker, https://github.com/sqlalchemy/alembic/issues/
+Name: arrow
+Version: 1.2.3
+Summary: Better dates & times for Python
+Home-page: https://arrow.readthedocs.io
+Author: Chris Smith
+Author-email: crsmithdev@gmail.com
+License: Apache 2.0
+Project-URL: Repository, https://github.com/arrow-py/arrow
+Project-URL: Bug Reports, https://github.com/arrow-py/arrow/issues
+Project-URL: Documentation, https://arrow.readthedocs.io
+Keywords: arrow date time datetime timestamp timezone humanize
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: Environment :: Console
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: Programming Language :: Python :: Implementation :: PyPy
-Classifier: Topic :: Database :: Front-Ends
-Requires-Python: >=3.7
+Requires-Python: >=3.6
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: SQLAlchemy (>=1.3.0)
-Requires-Dist: Mako
-Requires-Dist: importlib-metadata ; python_version < "3.9"
-Requires-Dist: importlib-resources ; python_version < "3.9"
-Provides-Extra: tz
-Requires-Dist: python-dateutil ; extra == 'tz'
+Requires-Dist: python-dateutil (>=2.7.0)
+Requires-Dist: typing-extensions ; python_version < "3.8"
 
-Alembic is a database migrations tool written by the author
-of `SQLAlchemy <http://www.sqlalchemy.org>`_.  A migrations tool
-offers the following functionality:
+Arrow: Better dates & times for Python
+======================================
 
-* Can emit ALTER statements to a database in order to change
-  the structure of tables and other constructs
-* Provides a system whereby "migration scripts" may be constructed;
-  each script indicates a particular series of steps that can "upgrade" a
-  target database to a new version, and optionally a series of steps that can
-  "downgrade" similarly, doing the same steps in reverse.
-* Allows the scripts to execute in some sequential manner.
+.. start-inclusion-marker-do-not-remove
 
-The goals of Alembic are:
+.. image:: https://github.com/arrow-py/arrow/workflows/tests/badge.svg?branch=master
+   :alt: Build Status
+   :target: https://github.com/arrow-py/arrow/actions?query=workflow%3Atests+branch%3Amaster
 
-* Very open ended and transparent configuration and operation.   A new
-  Alembic environment is generated from a set of templates which is selected
-  among a set of options when setup first occurs. The templates then deposit a
-  series of scripts that define fully how database connectivity is established
-  and how migration scripts are invoked; the migration scripts themselves are
-  generated from a template within that series of scripts. The scripts can
-  then be further customized to define exactly how databases will be
-  interacted with and what structure new migration files should take.
-* Full support for transactional DDL.   The default scripts ensure that all
-  migrations occur within a transaction - for those databases which support
-  this (Postgresql, Microsoft SQL Server), migrations can be tested with no
-  need to manually undo changes upon failure.
-* Minimalist script construction.  Basic operations like renaming
-  tables/columns, adding/removing columns, changing column attributes can be
-  performed through one line commands like alter_column(), rename_table(),
-  add_constraint(). There is no need to recreate full SQLAlchemy Table
-  structures for simple operations like these - the functions themselves
-  generate minimalist schema structures behind the scenes to achieve the given
-  DDL sequence.
-* "auto generation" of migrations. While real world migrations are far more
-  complex than what can be automatically determined, Alembic can still
-  eliminate the initial grunt work in generating new migration directives
-  from an altered schema.  The ``--autogenerate`` feature will inspect the
-  current status of a database using SQLAlchemy's schema inspection
-  capabilities, compare it to the current state of the database model as
-  specified in Python, and generate a series of "candidate" migrations,
-  rendering them into a new migration script as Python directives. The
-  developer then edits the new file, adding additional directives and data
-  migrations as needed, to produce a finished migration. Table and column
-  level changes can be detected, with constraints and indexes to follow as
-  well.
-* Full support for migrations generated as SQL scripts.   Those of us who
-  work in corporate environments know that direct access to DDL commands on a
-  production database is a rare privilege, and DBAs want textual SQL scripts.
-  Alembic's usage model and commands are oriented towards being able to run a
-  series of migrations into a textual output file as easily as it runs them
-  directly to a database. Care must be taken in this mode to not invoke other
-  operations that rely upon in-memory SELECTs of rows - Alembic tries to
-  provide helper constructs like bulk_insert() to help with data-oriented
-  operations that are compatible with script-based DDL.
-* Non-linear, dependency-graph versioning.   Scripts are given UUID
-  identifiers similarly to a DVCS, and the linkage of one script to the next
-  is achieved via human-editable markers within the scripts themselves.
-  The structure of a set of migration files is considered as a
-  directed-acyclic graph, meaning any migration file can be dependent
-  on any other arbitrary set of migration files, or none at
-  all.  Through this open-ended system, migration files can be organized
-  into branches, multiple roots, and mergepoints, without restriction.
-  Commands are provided to produce new branches, roots, and merges of
-  branches automatically.
-* Provide a library of ALTER constructs that can be used by any SQLAlchemy
-  application. The DDL constructs build upon SQLAlchemy's own DDLElement base
-  and can be used standalone by any application or script.
-* At long last, bring SQLite and its inablity to ALTER things into the fold,
-  but in such a way that SQLite's very special workflow needs are accommodated
-  in an explicit way that makes the most of a bad situation, through the
-  concept of a "batch" migration, where multiple changes to a table can
-  be batched together to form a series of instructions for a single, subsequent
-  "move-and-copy" workflow.   You can even use "move-and-copy" workflow for
-  other databases, if you want to recreate a table in the background
-  on a busy system.
+.. image:: https://codecov.io/gh/arrow-py/arrow/branch/master/graph/badge.svg
+   :alt: Coverage
+   :target: https://codecov.io/gh/arrow-py/arrow
 
-Documentation and status of Alembic is at https://alembic.sqlalchemy.org/
+.. image:: https://img.shields.io/pypi/v/arrow.svg
+   :alt: PyPI Version
+   :target: https://pypi.python.org/pypi/arrow
 
-The SQLAlchemy Project
-======================
+.. image:: https://img.shields.io/pypi/pyversions/arrow.svg
+   :alt: Supported Python Versions
+   :target: https://pypi.python.org/pypi/arrow
 
-Alembic is part of the `SQLAlchemy Project <https://www.sqlalchemy.org>`_ and
-adheres to the same standards and conventions as the core project.
+.. image:: https://img.shields.io/pypi/l/arrow.svg
+   :alt: License
+   :target: https://pypi.python.org/pypi/arrow
 
-Development / Bug reporting / Pull requests
-___________________________________________
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+   :alt: Code Style: Black
+   :target: https://github.com/psf/black
 
-Please refer to the
-`SQLAlchemy Community Guide <https://www.sqlalchemy.org/develop.html>`_ for
-guidelines on coding and participating in this project.
 
-Code of Conduct
-_______________
+**Arrow** is a Python library that offers a sensible and human-friendly approach to creating, manipulating, formatting and converting dates, times and timestamps. It implements and updates the datetime type, plugging gaps in functionality and providing an intelligent module API that supports many common creation scenarios. Simply put, it helps you work with dates and times with fewer imports and a lot less code.
 
-Above all, SQLAlchemy places great emphasis on polite, thoughtful, and
-constructive communication between users and developers.
-Please see our current Code of Conduct at
-`Code of Conduct <https://www.sqlalchemy.org/codeofconduct.html>`_.
+Arrow is named after the `arrow of time <https://en.wikipedia.org/wiki/Arrow_of_time>`_ and is heavily inspired by `moment.js <https://github.com/moment/moment>`_ and `requests <https://github.com/psf/requests>`_.
 
-License
-=======
+Why use Arrow over built-in modules?
+------------------------------------
 
-Alembic is distributed under the `MIT license
-<https://opensource.org/licenses/MIT>`_.
+Python's standard library and some other low-level modules have near-complete date, time and timezone functionality, but don't work very well from a usability perspective:
+
+- Too many modules: datetime, time, calendar, dateutil, pytz and more
+- Too many types: date, time, datetime, tzinfo, timedelta, relativedelta, etc.
+- Timezones and timestamp conversions are verbose and unpleasant
+- Timezone naivety is the norm
+- Gaps in functionality: ISO 8601 parsing, timespans, humanization
+
+Features
+--------
+
+- Fully-implemented, drop-in replacement for datetime
+- Support for Python 3.6+
+- Timezone-aware and UTC by default
+- Super-simple creation options for many common input scenarios
+- ``shift`` method with support for relative offsets, including weeks
+- Format and parse strings automatically
+- Wide support for the `ISO 8601 <https://en.wikipedia.org/wiki/ISO_8601>`_ standard
+- Timezone conversion
+- Support for ``dateutil``, ``pytz``, and ``ZoneInfo`` tzinfo objects
+- Generates time spans, ranges, floors and ceilings for time frames ranging from microsecond to year
+- Humanize dates and times with a growing list of contributed locales
+- Extensible for your own Arrow-derived types
+- Full support for PEP 484-style type hints
+
+Quick Start
+-----------
+
+Installation
+~~~~~~~~~~~~
+
+To install Arrow, use `pip <https://pip.pypa.io/en/stable/quickstart/>`_ or `pipenv <https://docs.pipenv.org>`_:
+
+.. code-block:: console
+
+    $ pip install -U arrow
+
+Example Usage
+~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    >>> import arrow
+    >>> arrow.get('2013-05-11T21:23:58.970460+07:00')
+    <Arrow [2013-05-11T21:23:58.970460+07:00]>
+
+    >>> utc = arrow.utcnow()
+    >>> utc
+    <Arrow [2013-05-11T21:23:58.970460+00:00]>
+
+    >>> utc = utc.shift(hours=-1)
+    >>> utc
+    <Arrow [2013-05-11T20:23:58.970460+00:00]>
+
+    >>> local = utc.to('US/Pacific')
+    >>> local
+    <Arrow [2013-05-11T13:23:58.970460-07:00]>
+
+    >>> local.timestamp()
+    1368303838.970460
+
+    >>> local.format()
+    '2013-05-11 13:23:58 -07:00'
+
+    >>> local.format('YYYY-MM-DD HH:mm:ss ZZ')
+    '2013-05-11 13:23:58 -07:00'
+
+    >>> local.humanize()
+    'an hour ago'
+
+    >>> local.humanize(locale='ko-kr')
+    '한시간 전'
+
+.. end-inclusion-marker-do-not-remove
+
+Documentation
+-------------
+
+For full documentation, please visit `arrow.readthedocs.io <https://arrow.readthedocs.io>`_.
+
+Contributing
+------------
+
+Contributions are welcome for both code and localizations (adding and updating locales). Begin by gaining familiarity with the Arrow library and its features. Then, jump into contributing:
+
+#. Find an issue or feature to tackle on the `issue tracker <https://github.com/arrow-py/arrow/issues>`_. Issues marked with the `"good first issue" label <https://github.com/arrow-py/arrow/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22>`_ may be a great place to start!
+#. Fork `this repository <https://github.com/arrow-py/arrow>`_ on GitHub and begin making changes in a branch.
+#. Add a few tests to ensure that the bug was fixed or the feature works as expected.
+#. Run the entire test suite and linting checks by running one of the following commands: ``tox && tox -e lint,docs`` (if you have `tox <https://tox.readthedocs.io>`_ installed) **OR** ``make build39 && make test && make lint`` (if you do not have Python 3.9 installed, replace ``build39`` with the latest Python version on your system).
+#. Submit a pull request and await feedback 😃.
+
+If you have any questions along the way, feel free to ask them `here <https://github.com/arrow-py/arrow/discussions>`_.
+
+Support Arrow
+-------------
+
+`Open Collective <https://opencollective.com/>`_ is an online funding platform that provides tools to raise money and share your finances with full transparency. It is the platform of choice for individuals and companies to make one-time or recurring donations directly to the project. If you are interested in making a financial contribution, please visit the `Arrow collective <https://opencollective.com/arrow>`_.
