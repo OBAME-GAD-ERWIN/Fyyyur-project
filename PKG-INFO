@@ -1,101 +1,60 @@
 Metadata-Version: 2.1
-Name: BabelPy
-Version: 1.0.1
-Summary: BabelFy API Client
-Home-page: https://github.com/fbngrm/babelpy
-Author: Fabian Grimme
-Author-email: fbngrm@googlemail.com
-License: GPL
-Keywords: nlp computational_linguistics entities wikipedia dbpedia linguistics
-Classifier: Development Status :: 5 - Production/Stable
-Classifier: Topic :: Text Processing :: Linguistic
-Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3
-Classifier: Operating System :: POSIX
+Name: bootstrap3-datetime
+Version: 2.4
+Summary: Bootstrap3 compatible datetimepicker for Django projects.
+Home-page: https://github.com/gcaprio/django-bootstrap3-datetimepicker.git
+Author: Nakahara Kunihiko
+Author-email: nakahara.kunihiko@gmail.com
+License: Apache License 2.0
 Classifier: Intended Audience :: Developers
-Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Utilities
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Django
+License-File: LICENSE
 
-BabelFy API Client
-======================
+django-bootstrap3-datetimepicker
+================================
 
-Python `BabelFy <http://babelfy.org>`_ entity tagger. Can be used as a library or command-line tool. Compatible with
-both Python 2.7 as well as Python 3.
+This package uses Bootstrap v3 datetimepicker widget version 2 provided by the following project:
+ https://github.com/Eonasdan/bootstrap-datetimepicker
 
-Installation
----------------
+The correct formatting options for dates can be found here:
+ http://momentjs.com/docs/
 
-::
+It works only with Bootstrap3. If you are using Bootstrap2 in your
+Django project, check out this:
+https://github.com/zokis/django-bootstrap-datetimepicker
 
-    pip install babelpy
-
-or clone this github repository and run ``python setup.py install``, optionally prepend the commands with ``sudo`` for
-global installation.
-
-Usage
+Install
 -------
 
-Add your Babelfy API Key to the config file or provide it as an argument.
+-  Run ``pip install bootstrap3-datetime``
+-  Add ``'bootstrap3_datetime'`` to your ``INSTALLED_APPS``
 
+Example
+-------
 
-Use as command-line tool
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+forms.py
+
 
 ::
 
-    babelpy [-h] [-t  | -tf ] [-e] [-ae] [-m] [-am] [-p] [-ex]
+    from bootstrap3_datetime.widgets import DateTimePicker
+    from django import forms
 
-**Options**::
-
-    -h,  --help                 show a help message and exit
-    -key --api-key              BabelFy API key
-    -t   --text                 text to be annotated by BabelFy API
-    -tf  --text-file            path to the file containing the input text
-    -e,  --entities             get entity data
-    -ae  --all-entities         get entity and non-entity data
-    -m   --merged-entities      get merged entities only
-    -am  --all-merged-entities  get all merged entities
-    -p   --print                dump all babelfy data to stdout
-    -ex  --export               filename of the output file
-
-**Example**::
-
-    babelpy -tf ~/data/fashion.txt -am -ex ~/data/fashion.json
-
-See ``babelpy -h`` for help.
-
-Use as a library
-~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: python
-
-
-    from babelfy import BabelfyClient
-
-
-    # Instantiate BabelFy client.
-    params = dict()
-    params['lang'] = LANG
-    babel_client = BabelfyClient(API_KEY, params)
-
-    # Babelfy sentence.
-    babel_client.babelfy(TEXT_TO_BE_BABELFIED)
-
-    # Get entity data.
-    print(babel_client.entities)
-
-    # Get entity and non-entity data.
-    print(babel_client.all_entities)
-
-    # Get merged entities only.
-    print(babel_client.merged_entities)
-
-    # Get all merged entities.
-    babel_client.all_merged_entities
-
-Run Tests with ``python tests/run_tests.py``
-
-License
------------
-
-GNU - GPL 3.0
+    class ToDoForm(forms.Form):
+        todo = forms.CharField(
+            widget=forms.TextInput(attrs={"class": "form-control"}))
+        date = forms.DateField(
+            widget=DateTimePicker(options={"format": "YYYY-MM-DD",
+                                           "pickTime": False}))
+        reminder = forms.DateTimeField(
+            required=False,
+            widget=DateTimePicker(options={"format": "YYYY-MM-DD HH:mm",
+                                           "pickSeconds": False}))
