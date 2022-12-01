@@ -1,117 +1,264 @@
-"""Helpful functions used internally within arrow."""
+"""
+    babel.util
+    ~~~~~~~~~~
 
-import datetime
-from typing import Any, Optional, cast
+    Various utility classes and functions.
 
-from dateutil.rrule import WEEKLY, rrule
+    :copyright: (c) 2013-2022 by the Babel Team.
+    :license: BSD, see LICENSE for more details.
+"""
 
-from arrow.constants import (
-    MAX_ORDINAL,
-    MAX_TIMESTAMP,
-    MAX_TIMESTAMP_MS,
-    MAX_TIMESTAMP_US,
-    MIN_ORDINAL,
-)
+import codecs
+import collections
+from datetime import timedelta, tzinfo
+import os
+import re
+import textwrap
+import pytz as _pytz
+from babel import localtime
+
+missing = object()
 
 
-def next_weekday(
-    start_date: Optional[datetime.date], weekday: int
-) -> datetime.datetime:
-    """Get next weekday from the specified start date.
+def distinct(iterable):
+    """Yield all items in an iterable collection that are distinct.
 
-    :param start_date: Datetime object representing the start date.
-    :param weekday: Next weekday to obtain. Can be a value between 0 (Monday) and 6 (Sunday).
-    :return: Datetime object corresponding to the next weekday after start_date.
+    Unlike when using sets for a similar effect, the original ordering of the
+    items in the collection is preserved by this function.
 
-    Usage::
+    >>> print(list(distinct([1, 2, 1, 3, 4, 4])))
+    [1, 2, 3, 4]
+    >>> print(list(distinct('foobar')))
+    ['f', 'o', 'b', 'a', 'r']
 
-        # Get first Monday after epoch
-        >>> next_weekday(datetime(1970, 1, 1), 0)
-        1970-01-05 00:00:00
-
-        # Get first Thursday after epoch
-        >>> next_weekday(datetime(1970, 1, 1), 3)
-        1970-01-01 00:00:00
-
-        # Get first Sunday after epoch
-        >>> next_weekday(datetime(1970, 1, 1), 6)
-        1970-01-04 00:00:00
+    :param iterable: the iterable collection providing the data
     """
-    if weekday < 0 or weekday > 6:
-        raise ValueError("Weekday must be between 0 (Monday) and 6 (Sunday).")
-    return cast(
-        datetime.datetime,
-        rrule(freq=WEEKLY, dtstart=start_date, byweekday=weekday, count=1)[0],
+    seen = set()
+    for item in iter(iterable):
+        if item not in seen:
+            yield item
+            seen.add(item)
+
+# Regexp to match python magic encoding line
+PYTHON_MAGIC_COMMENT_re = re.compile(
+    br'[ \t\f]* \# .* coding[=:][ \t]*([-\w.]+)', re.VERBOSE)
+
+
+def parse_encoding(fp):
+    """Deduce the encoding of a source file from magic comment.
+
+    It does this in the same way as the `Python interpreter`__
+
+    .. __: https://docs.python.org/3.4/reference/lexical_analysis.html#encoding-declarations
+
+    The ``fp`` argument should be a seekable file object.
+
+    (From Jeff Dairiki)
+    """
+    pos = fp.tell()
+    fp.seek(0)
+    try:
+        line1 = fp.readline()
+        has_bom = line1.startswith(codecs.BOM_UTF8)
+        if has_bom:
+            line1 = line1[len(codecs.BOM_UTF8):]
+
+        m = PYTHON_MAGIC_COMMENT_re.match(line1)
+        if not m:
+            try:
+                import ast
+                ast.parse(line1.decode('latin-1'))
+            except (ImportError, SyntaxError, UnicodeEncodeError):
+                # Either it's a real syntax error, in which case the source is
+                # not valid python source, or line2 is a continuation of line1,
+                # in which case we don't want to scan line2 for a magic
+                # comment.
+                pass
+            else:
+                line2 = fp.readline()
+                m = PYTHON_MAGIC_COMMENT_re.match(line2)
+
+        if has_bom:
+            if m:
+                magic_comment_encoding = m.group(1).decode('latin-1')
+                if magic_comment_encoding != 'utf-8':
+                    raise SyntaxError(
+                        'encoding problem: {0} with BOM'.format(
+                            magic_comment_encoding))
+            return 'utf-8'
+        elif m:
+            return m.group(1).decode('latin-1')
+        else:
+            return None
+    finally:
+        fp.seek(pos)
+
+
+PYTHON_FUTURE_IMPORT_re = re.compile(
+    r'from\s+__future__\s+import\s+\(*(.+)\)*')
+
+
+def parse_future_flags(fp, encoding='latin-1'):
+    """Parse the compiler flags by :mod:`__future__` from the given Python
+    code.
+    """
+    import __future__
+    pos = fp.tell()
+    fp.seek(0)
+    flags = 0
+    try:
+        body = fp.read().decode(encoding)
+
+        # Fix up the source to be (hopefully) parsable by regexpen.
+        # This will likely do untoward things if the source code itself is broken.
+
+        # (1) Fix `import (\n...` to be `import (...`.
+        body = re.sub(r'import\s*\([\r\n]+', 'import (', body)
+        # (2) Join line-ending commas with the next line.
+        body = re.sub(r',\s*[\r\n]+', ', ', body)
+        # (3) Remove backslash line continuations.
+        body = re.sub(r'\\\s*[\r\n]+', ' ', body)
+
+        for m in PYTHON_FUTURE_IMPORT_re.finditer(body):
+            names = [x.strip().strip('()') for x in m.group(1).split(',')]
+            for name in names:
+                feature = getattr(__future__, name, None)
+                if feature:
+                    flags |= feature.compiler_flag
+    finally:
+        fp.seek(pos)
+    return flags
+
+
+def pathmatch(pattern, filename):
+    """Extended pathname pattern matching.
+
+    This function is similar to what is provided by the ``fnmatch`` module in
+    the Python standard library, but:
+
+     * can match complete (relative or absolute) path names, and not just file
+       names, and
+     * also supports a convenience pattern ("**") to match files at any
+       directory level.
+
+    Examples:
+
+    >>> pathmatch('**.py', 'bar.py')
+    True
+    >>> pathmatch('**.py', 'foo/bar/baz.py')
+    True
+    >>> pathmatch('**.py', 'templates/index.html')
+    False
+
+    >>> pathmatch('./foo/**.py', 'foo/bar/baz.py')
+    True
+    >>> pathmatch('./foo/**.py', 'bar/baz.py')
+    False
+
+    >>> pathmatch('^foo/**.py', 'foo/bar/baz.py')
+    True
+    >>> pathmatch('^foo/**.py', 'bar/baz.py')
+    False
+
+    >>> pathmatch('**/templates/*.html', 'templates/index.html')
+    True
+    >>> pathmatch('**/templates/*.html', 'templates/foo/bar.html')
+    False
+
+    :param pattern: the glob pattern
+    :param filename: the path name of the file to match against
+    """
+    symbols = {
+        '?': '[^/]',
+        '?/': '[^/]/',
+        '*': '[^/]+',
+        '*/': '[^/]+/',
+        '**/': '(?:.+/)*?',
+        '**': '(?:.+/)*?[^/]+',
+    }
+
+    if pattern.startswith('^'):
+        buf = ['^']
+        pattern = pattern[1:]
+    elif pattern.startswith('./'):
+        buf = ['^']
+        pattern = pattern[2:]
+    else:
+        buf = []
+
+    for idx, part in enumerate(re.split('([?*]+/?)', pattern)):
+        if idx % 2:
+            buf.append(symbols[part])
+        elif part:
+            buf.append(re.escape(part))
+    match = re.match(''.join(buf) + '$', filename.replace(os.sep, '/'))
+    return match is not None
+
+
+class TextWrapper(textwrap.TextWrapper):
+    wordsep_re = re.compile(
+        r'(\s+|'                                  # any whitespace
+        r'(?<=[\w\!\"\'\&\.\,\?])-{2,}(?=\w))'    # em-dash
     )
 
 
-def is_timestamp(value: Any) -> bool:
-    """Check if value is a valid timestamp."""
-    if isinstance(value, bool):
-        return False
-    if not isinstance(value, (int, float, str)):
-        return False
-    try:
-        float(value)
-        return True
-    except ValueError:
-        return False
+def wraptext(text, width=70, initial_indent='', subsequent_indent=''):
+    """Simple wrapper around the ``textwrap.wrap`` function in the standard
+    library. This version does not wrap lines on hyphens in words.
 
-
-def validate_ordinal(value: Any) -> None:
-    """Raise an exception if value is an invalid Gregorian ordinal.
-
-    :param value: the input to be checked
-
+    :param text: the text to wrap
+    :param width: the maximum line width
+    :param initial_indent: string that will be prepended to the first line of
+                           wrapped output
+    :param subsequent_indent: string that will be prepended to all lines save
+                              the first of wrapped output
     """
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise TypeError(f"Ordinal must be an integer (got type {type(value)}).")
-    if not (MIN_ORDINAL <= value <= MAX_ORDINAL):
-        raise ValueError(f"Ordinal {value} is out of range.")
+    wrapper = TextWrapper(width=width, initial_indent=initial_indent,
+                          subsequent_indent=subsequent_indent,
+                          break_long_words=False)
+    return wrapper.wrap(text)
 
 
-def normalize_timestamp(timestamp: float) -> float:
-    """Normalize millisecond and microsecond timestamps into normal timestamps."""
-    if timestamp > MAX_TIMESTAMP:
-        if timestamp < MAX_TIMESTAMP_MS:
-            timestamp /= 1000
-        elif timestamp < MAX_TIMESTAMP_US:
-            timestamp /= 1_000_000
-        else:
-            raise ValueError(f"The specified timestamp {timestamp!r} is too large.")
-    return timestamp
+# TODO (Babel 3.x): Remove this re-export
+odict = collections.OrderedDict
 
 
-# Credit to https://stackoverflow.com/a/1700069
-def iso_to_gregorian(iso_year: int, iso_week: int, iso_day: int) -> datetime.date:
-    """Converts an ISO week date into a datetime object.
+class FixedOffsetTimezone(tzinfo):
+    """Fixed offset in minutes east from UTC."""
 
-    :param iso_year: the year
-    :param iso_week: the week number, each year has either 52 or 53 weeks
-    :param iso_day: the day numbered 1 through 7, beginning with Monday
+    def __init__(self, offset, name=None):
+        self._offset = timedelta(minutes=offset)
+        if name is None:
+            name = 'Etc/GMT%+d' % offset
+        self.zone = name
 
-    """
+    def __str__(self):
+        return self.zone
 
-    if not 1 <= iso_week <= 53:
-        raise ValueError("ISO Calendar week value must be between 1-53.")
+    def __repr__(self):
+        return '<FixedOffset "%s" %s>' % (self.zone, self._offset)
 
-    if not 1 <= iso_day <= 7:
-        raise ValueError("ISO Calendar day value must be between 1-7")
+    def utcoffset(self, dt):
+        return self._offset
 
-    # The first week of the year always contains 4 Jan.
-    fourth_jan = datetime.date(iso_year, 1, 4)
-    delta = datetime.timedelta(fourth_jan.isoweekday() - 1)
-    year_start = fourth_jan - delta
-    gregorian = year_start + datetime.timedelta(days=iso_day - 1, weeks=iso_week - 1)
+    def tzname(self, dt):
+        return self.zone
 
-    return gregorian
-
-
-def validate_bounds(bounds: str) -> None:
-    if bounds != "()" and bounds != "(]" and bounds != "[)" and bounds != "[]":
-        raise ValueError(
-            "Invalid bounds. Please select between '()', '(]', '[)', or '[]'."
-        )
+    def dst(self, dt):
+        return ZERO
 
 
-__all__ = ["next_weekday", "is_timestamp", "validate_ordinal", "iso_to_gregorian"]
+# Export the localtime functionality here because that's
+# where it was in the past.
+UTC = _pytz.utc
+LOCALTZ = localtime.LOCALTZ
+get_localzone = localtime.get_localzone
+
+STDOFFSET = localtime.STDOFFSET
+DSTOFFSET = localtime.DSTOFFSET
+DSTDIFF = localtime.DSTDIFF
+ZERO = localtime.ZERO
+
+
+def _cmp(a, b):
+    return (a > b) - (a < b)
