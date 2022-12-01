@@ -1,10 +1,20 @@
-from __future__ import unicode_literals, absolute_import
-from os.path import abspath, join, dirname
+import os
+SECRET_KEY = os.urandom(32)
+# Grabs the folder where the script runs.
+basedir = os.path.abspath(os.path.dirname(__file__))
 
-ROOT_PATH = abspath(join(dirname(__file__), '..'))
-DUMP_DIR = 'data'
-DUMP_PATH = abspath(join(ROOT_PATH, DUMP_DIR))
-BABELFY_API_URL = 'https://babelfy.io/v1/disambiguate'
-LANG = 'EN'
-API_KEY = None
-BABELFY_API_URL = 'https://babelfy.io/v1/disambiguate'
+# Enable debug mode.
+DEBUG = True
+
+# Connect to the database
+
+
+# TODO IMPLEMENT DATABASE URL
+SQLALCHEMY_DATABASE_URI = 'postgresql://postgres:will@localhost:5432/datafyyur'
+# Remove console warning
+SQLALCHEMY_TRACK_MODIFICATIONS = True
+
+
+
+
+
